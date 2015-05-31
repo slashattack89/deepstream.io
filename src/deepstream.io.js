@@ -21,7 +21,7 @@ require( 'colors' );
  * @copyright 2015 Hoxton-One Ltd.
  * @author Wolfram Hempel
  * @version <version>
- * 
+ *
  * @constructor
  */
 var Deepstream = function() {
@@ -36,7 +36,7 @@ var Deepstream = function() {
 	this._rpcHandler = null;
 	this._recordHandler = null;
 	this._initialised = false;
-	this._plugins = [ 
+	this._plugins = [
 		'messageConnector',
 		'storage',
 		'cache',
@@ -57,13 +57,17 @@ process.title = 'deepstream server';
  * Set a deepstream option. For a list of all available options
  * please see default-options.
  *
- * @param {String} key   the name of the option
- * @param {Mixed} value  the value, e.g. a portnumber for ports or an instance of a logger class
+ * @param {String} key the name of the option
+ * @param {Mixed} value the value, e.g. a portnumber for ports or an instance of a logger class
  *
  * @public
  * @returns {void}
  */
 Deepstream.prototype.set = function( key, value ) {
+	if( this._initialised === true ) {
+		throw new Error( 'Can\'t set options after deepstream has been started' );
+	}
+
 	if( this._options[ key ] === undefined ) {
 		throw new Error( 'Unknown option "' + key + '"' );
 	}
@@ -73,7 +77,7 @@ Deepstream.prototype.set = function( key, value ) {
 
 /**
  * Starts up deepstream. The startup process has three steps:
- * 
+ *
  * - Initialise all dependencies (cache connector, message connector, storage connector and logger)
  * - Instantiate the messaging pipeline and record-, rpc- and event-handler
  * - Start TCP and HTTP server
@@ -82,27 +86,26 @@ Deepstream.prototype.set = function( key, value ) {
  * @returns {void}
  */
 Deepstream.prototype.start = function() {
+	var	i,
+		initialiser;
+
 	this._showStartLogo();
 
 	if( this._options.logger.isReady ) {
 		this._options.logger.setLogLevel( this._options.logLevel );
 		this._options.logger._$useColors = this._options.colors;
 	}
-	
-
-	var i,
-		initialiser;
 
 	for( i = 0; i < this._plugins.length; i++ ) {
 		initialiser = new DependencyInitialiser( this._options, this._plugins[ i ] );
-		initialiser.once( 'ready', this._checkReady.bind( this, this._plugins[ i ], initialiser.getDependency() ));
+		initialiser.once( 'ready', this._checkReady.bind( this, this._plugins[ i ], initialiser.getDependency() ) );
 	}
 };
 
 /**
  * Stops the server and closes all connections. The server can be started again,
  * but all clients have to reconnect. Will emit a 'stopped' event once done
- * 
+ *
  * @public
  * @returns {void}
  */
@@ -110,7 +113,7 @@ Deepstream.prototype.stop = function() {
 	var i,
 		plugin,
 		closables = [ this._connectionEndpoint ];
-		
+
 	for( i = 0; i < this._plugins.length; i++ ) {
 		plugin = this._options[ this._plugins[ i ] ];
 		if( typeof plugin.close === 'function' ) {
@@ -118,7 +121,7 @@ Deepstream.prototype.stop = function() {
 			setTimeout( plugin.close.bind( plugin ) );
 		}
 	}
-	
+
 	utils.combineEvents( closables, 'close', this._onStopped.bind( this ) );
 	this._connectionEndpoint.close();
 };
@@ -127,7 +130,7 @@ Deepstream.prototype.stop = function() {
  * Expose the message-parser's convertTyped method
  * so that it can be used within permissionHandlers
  *
- * @param   {String} value A String starting with a type identifier (see C.TYPES)
+ * @param	 {String} value A String starting with a type identifier (see C.TYPES)
  *
  * @public
  * @returns {mixed} the converted value
@@ -138,11 +141,12 @@ Deepstream.prototype.convertTyped = function( value ) {
 
 /**
  * Callback for the final stop event
- * 
+ *
  * @private
  * @returns {void}
  */
 Deepstream.prototype._onStopped = function() {
+	this._initialised = false;
 	this.isRunning = false;
 	this.emit( 'stopped' );
 };
@@ -158,16 +162,16 @@ Deepstream.prototype._showStartLogo = function() {
 	if( this._options.showLogo !== true ) {
 		return;
 	}
-	
+
 	var logo =
 	' _____________________________________________________________________________\n'+
-	'                                                                              \n'+
-	'         /                                                             ,      \n'+
+	'																																							\n'+
+	'				 /																														 ,			\n'+
 	' ----__-/----__----__------__---__--_/_---)__----__----__---_--_-----------__-\n'+
-	'   /   /   /___) /___)   /   ) (_ ` /    /   ) /___) /   ) / /  )    /   /   )\n'+
+	'	 /	 /	 /___) /___)	 /	 ) (_ ` /		/	 ) /___) /	 ) / /	)		/	 /	 )\n'+
 	' _(___/___(___ _(___ ___/___/_(__)_(_ __/_____(___ _(___(_/_/__/__o_/___(___/_\n'+
-	'                       /                                                      \n'+
-	'                      /                                                       \n'+
+	'											 /																											\n'+
+	'											/																											 \n'+
 	'=============================== STARTING... ==================================\n';
 
 	process.stdout.write( this._options.colors ? logo.yellow : logo );
@@ -188,10 +192,10 @@ Deepstream.prototype._init = function() {
 
 	this._eventHandler = new EventHandler( this._options );
 	this._messageDistributor.registerForTopic( C.TOPIC.EVENT, this._eventHandler.handle.bind( this._eventHandler ) );
-	
+
 	this._rpcHandler = new RpcHandler( this._options );
 	this._messageDistributor.registerForTopic( C.TOPIC.RPC, this._rpcHandler.handle.bind( this._rpcHandler ) );
-	
+
 	this._recordHandler = new RecordHandler( this._options );
 	this._messageDistributor.registerForTopic( C.TOPIC.RECORD, this._recordHandler.handle.bind( this._recordHandler ) );
 
@@ -217,7 +221,7 @@ Deepstream.prototype._checkReady = function( pluginName, plugin ) {
 			return;
 		}
 	}
-	
+
 	if( this._initialised === false ) {
 		this._init();
 	}
@@ -239,13 +243,13 @@ Deepstream.prototype._onStarted = function() {
  * Callback for plugin errors that occur at runtime. Errors during initialisation
  * are handled by the DependencyInitialiser
  *
- * @param   {String} pluginName
- * @param   {Error} error
+ * @param	 {String} pluginName
+ * @param	 {Error} error
  *
  * @private
  * @returns {void}
  */
-Deepstream.prototype._onPluginError = function( pluginName, error  ) {
+Deepstream.prototype._onPluginError = function( pluginName, error	) {
 	var msg = 'Error from ' + pluginName + ' plugin: ' + error.toString();
 	this._options.logger.log( C.LOG_LEVEL.ERROR, C.EVENT.PLUGIN_ERROR, msg );
 };
